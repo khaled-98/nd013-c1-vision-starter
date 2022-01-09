@@ -2,26 +2,87 @@ import argparse
 import glob
 import os
 import random
-
-import numpy as np
+from shutil import copy
 
 from utils import get_module_logger
 
 
 def split(source, destination):
     """
-    Create three splits from the processed records. The files should be moved to new folders in the
-    same directory. This folder should be named train, val and test.
+    Create three splits from the processed records. The files should be moved
+    to new folders in the same directory. This folder should be named train,
+    val and test.
 
     args:
-        - source [str]: source data directory, contains the processed tf records
-        - destination [str]: destination data directory, contains 3 sub folders: train / val / test
+        - source [str]: source data directory, contains the processed tf
+                        records
+        - destination [str]: destination data directory, contains 3 sub
+                             folders: train / val / test
     """
-    # TODO: Implement function
+    # Import the names of files containing dark scenes
+    with open('dark_files.txt') as file:
+        list_of_dark_files = file.readlines()
+        list_of_dark_files = [line.rstrip() for line in list_of_dark_files]
+
+    # Import the names of files containing rainy scenes
+    with open('rainy_files.txt') as file:
+        list_of_rainy_files = file.readlines()
+        list_of_rainy_files = [line.rstrip() for line in list_of_rainy_files]
+
+    combined_list_of_special_files = list_of_dark_files + list_of_rainy_files
+
+    list_of_all_files = [os.path.basename(x)
+                         for x in glob.glob(source + '/*.tfrecord')]
+
+    # List of files that are not dark or rainy
+    filtered_files = [file for file in list_of_all_files
+                      if file not in combined_list_of_special_files]
+
+    training_files = []
+    validation_files = []
+    testing_files = []
+
+    # Shuffle files
+    random.shuffle(filtered_files)
+    random.shuffle(list_of_dark_files)
+    random.shuffle(list_of_rainy_files)
+
+    # 75% for training, 15% for validation, 10% testing
+
+    # normal files
+    idx_of_75_perct = int(len(filtered_files) * 0.75)
+    idx_of_90_perct = int(len(filtered_files) * 0.9)
+    training_files += filtered_files[0:idx_of_75_perct]
+    validation_files += filtered_files[idx_of_75_perct:idx_of_90_perct]
+    testing_files += filtered_files[idx_of_90_perct:]
+
+    # rainy files
+    idx_of_75_perct = int(len(list_of_rainy_files) * 0.75)
+    idx_of_90_perct = int(len(list_of_rainy_files) * 0.9)
+    training_files += list_of_rainy_files[0:idx_of_75_perct]
+    validation_files += list_of_rainy_files[idx_of_75_perct:idx_of_90_perct]
+    testing_files += list_of_rainy_files[idx_of_90_perct:]
+
+    # dark files
+    idx_of_75_perct = int(len(list_of_dark_files) * 0.75)
+    idx_of_90_perct = int(len(list_of_dark_files) * 0.9)
+    training_files += list_of_dark_files[0:idx_of_75_perct]
+    validation_files += list_of_dark_files[idx_of_75_perct:idx_of_90_perct]
+    testing_files += list_of_dark_files[idx_of_90_perct:]
+
+    for file in training_files:
+        copy(source + '/' + file, destination + '/train/')
+
+    for file in validation_files:
+        copy(source + '/' + file, destination + '/val/')
+
+    for file in testing_files:
+        copy(source + '/' + file, destination + '/test/')
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Split data into training / validation / testing')
+    parser = argparse.ArgumentParser(
+        description='Split data into training / validation / testing')
     parser.add_argument('--source', required=True,
                         help='source data directory')
     parser.add_argument('--destination', required=True,
